@@ -1,5 +1,5 @@
 -- Junior Hub | LinoriaLib v5
--- Auto Clicker + Flight + Mob ESP + Player ESP + Auto Dwarf King Quest
+-- Auto Clicker + Flight + Mob ESP + Player ESP + Auto Accept All Quests
 -- Place in StarterPlayerScripts as a LocalScript
 
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
@@ -15,6 +15,20 @@ local RS               = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
+
+-- ========================================
+--          HELPER FUNCTIONS (TOP)
+-- ========================================
+
+local function getRoot()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
 
 -- ========================================
 --             AUTO CLICKER
@@ -51,7 +65,6 @@ local function applyNoFog()
     Lighting.FogEnd   = 100000
     Lighting.FogStart = 100000
 
-    -- Zero out any Atmosphere (volumetric fog / haze)
     for _, obj in ipairs(Lighting:GetChildren()) do
         if obj:IsA("Atmosphere") then
             savedAtmosphere = {
@@ -67,7 +80,6 @@ local function applyNoFog()
         end
     end
 
-    -- Watch for game re-adding fog or Atmosphere
     FogConn = Lighting:GetPropertyChangedSignal("FogEnd"):Connect(function()
         if NoFogEnabled then Lighting.FogEnd = 100000 end
     end)
@@ -106,7 +118,6 @@ local savedShadows       = nil
 local savedGrassLength   = nil
 local savedDecorations   = nil
 
--- Shadows
 local function removeShadows()
     local Lighting = game:GetService("Lighting")
     savedShadows = Lighting.GlobalShadows
@@ -117,7 +128,6 @@ local function restoreShadows()
     if savedShadows ~= nil then Lighting.GlobalShadows = savedShadows end
 end
 
--- Grass & terrain decorations
 local function removeGrass()
     local terrain = workspace:FindFirstChildOfClass("Terrain")
     if terrain then
@@ -135,7 +145,6 @@ local function restoreGrass()
     end
 end
 
--- Part textures (sets all BasePart materials to SmoothPlastic, saves originals)
 local savedMaterials  = {}
 local savedTextures   = {}
 
@@ -164,7 +173,6 @@ local function restoreTextures()
     savedTextures  = {}
 end
 
--- Post-processing effects (bloom, blur, color correction, sun rays)
 local savedEffects = {}
 local function removePostFX()
     savedEffects = {}
@@ -182,7 +190,6 @@ local function restorePostFX()
     end
     savedEffects = {}
 end
-
 
 -- ========================================
 --           FULL BRIGHT
@@ -205,7 +212,6 @@ local function applyFullBright()
     L.OutdoorAmbient   = Color3.new(1, 1, 1)
     L.Brightness       = 2
     L.ColorShift_Bottom = Color3.new(0, 0, 0)
-    -- lock it
     FB_Conn = L:GetPropertyChangedSignal("Brightness"):Connect(function()
         if FullBrightEnabled then L.Brightness = 2 end
     end)
@@ -244,8 +250,6 @@ local function unlockTime()
     if ClockConn then ClockConn:Disconnect(); ClockConn = nil end
 end
 
--- (Auto Sprint removed: handled natively by game)
-
 -- ========================================
 --           AUTO TAKE QUEST
 -- ========================================
@@ -254,29 +258,47 @@ local AutoQuestEnabled = false
 local AutoQuestThread  = nil
 
 local function runQuestSequence()
+    local qKey  = string.char(229, 143, 145, 230, 148, 190, 228, 187, 187, 229, 138, 161)
+    local qBase = string.char(228, 187, 187, 229, 138, 161)
+    local qArg1 = string.char(232, 167, 166, 229, 143, 145, 232, 129, 138, 229, 164, 169)
+    local qArg2 = string.char(229, 147, 136, 229, 136, 169, 229, 155, 160, 231, 137, 185)
+
+    -- Step 1 & 2: Accept Dwarf King quest
     pcall(function()
-        RS.Msg.RemoteEvent.RemoteEvent:FireServer(
-            "\232\167\166\229\143\145\232\129\138\229\164\169",
-            {"\229\147\136\229\136\169\229\155\160\231\137\185", "10010100"}
-        )
+        RS.Msg.RemoteEvent.RemoteEvent:FireServer(qArg1, {qArg2, "10010100"})
     end)
     task.wait(0.4)
     pcall(function()
-        RS.Msg.RemoteEvent.RemoteEvent:FireServer(
-            "\232\167\166\229\143\145\232\129\138\229\164\169",
-            {"\229\147\136\229\136\169\229\155\160\231\137\185", 10010501}
-        )
+        RS.Msg.RemoteEvent.RemoteEvent:FireServer(qArg1, {qArg2, 10010501})
     end)
     task.wait(0.4)
+    -- Step 3: Talk to NPC (quest 6)
     pcall(function()
-        RS.Msg.Function.TalkFunc:InvokeServer(
-            "\229\143\145\230\148\190\228\187\187\229\138\161",
-            {"\228\187\187\229\138\161" .. "6"}
-        )
+        RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "6"})
+    end)
+    task.wait(0.4)
+    -- Step 4: Confirm task
+    pcall(function()
+        RS.Msg.RemoteFunction.Setting:InvokeServer("TASK", 1)
+    end)
+    task.wait(0.4)
+    -- Step 5: Quest 4
+    pcall(function()
+        RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "4"})
     end)
     task.wait(0.4)
     pcall(function()
         RS.Msg.RemoteFunction.Setting:InvokeServer("TASK", 1)
+    end)
+    task.wait(0.4)
+    -- Step 6: Quest 3
+    pcall(function()
+        RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "3"})
+    end)
+    task.wait(0.4)
+    -- Step 7: Quest 2
+    pcall(function()
+        RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "2"})
     end)
 end
 
@@ -298,6 +320,162 @@ local function stopAutoQuest()
 end
 
 -- ========================================
+--               AUTO SELL
+-- ========================================
+
+local AutoSellEnabled = false
+local AutoSellThread  = nil
+
+local function runSellSequence()
+    local str1 = string.char(232, 167, 166, 229, 143, 145, 232, 129, 138, 229, 164, 169)
+    local str2 = string.char(233, 154, 134, 229, 183, 180, 231, 137, 185)
+    local str3 = string.char(230, 137, 147, 229, 188, 128, 231, 149, 140, 233, 157, 162)
+    local str4 = string.char(229, 135, 186, 229, 148, 174, 232, 131, 140, 229, 140, 133, 231, 137, 169, 229, 147, 129)
+    local str5 = string.char(229, 136, 183, 230, 150, 176, 229, 188, 149, 229, 175, 188)
+
+    pcall(function()
+        RS.Msg.RemoteEvent.RemoteEvent:FireServer(str1, {str2, "10030100"})
+    end)
+    task.wait(0.4)
+    pcall(function()
+        RS.Msg.RemoteEvent.RemoteEvent:FireServer(str1, {str2, 10030401})
+    end)
+    task.wait(0.4)
+    pcall(function()
+        RS.Msg.Function.TalkFunc:InvokeServer(str3, {"SellPop"})
+    end)
+    task.wait(0.4)
+    pcall(function()
+        RS.Msg.RemoteFunction.RemoteFunction:InvokeServer(str4, {["onlyIDList"] = {1137, 1140, 1139, 1138}})
+    end)
+    task.wait(0.4)
+    pcall(function()
+        RS.Msg.RemoteEvent.RemoteEvent:FireServer(str5)
+    end)
+end
+
+local function startAutoSell()
+    AutoSellThread = task.spawn(function()
+        while AutoSellEnabled do
+            runSellSequence()
+            task.wait(2)
+        end
+    end)
+end
+
+local function stopAutoSell()
+    AutoSellEnabled = false
+    if AutoSellThread then
+        task.cancel(AutoSellThread)
+        AutoSellThread = nil
+    end
+end
+
+-- ========================================
+--               MOB ESP CONFIG
+-- (moved above autofarm so it's available)
+-- ========================================
+
+local ESP_CONFIG = {
+    MobFolder    = "Monster",
+    MobTag       = "",
+    NameColor    = Color3.fromRGB(255, 100, 100),
+    HealthColor  = Color3.fromRGB(50, 255, 100),
+    ShowName     = true,
+    ShowHealth   = true,
+    ShowDistance = true,
+    MaxDistance  = 0,
+    IDPrefixes   = {"11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30"},
+    FilterByID   = false,
+}
+
+-- ========================================
+--             MOB AUTOFARM
+-- (fixed: uses ESP_CONFIG, GetChildren first
+--  then falls back to GetDescendants, better
+--  Y offset, radius actually filters mobs)
+-- ========================================
+
+local AutoFarmEnabled = false
+local AutoFarmThread  = nil
+local AutoFarmRadius  = 50
+
+local function getNearestMob()
+    local root = getRoot()
+    if not root then return nil end
+
+    local nearest, nearestDist = nil, math.huge
+
+    local folder = workspace:FindFirstChild(ESP_CONFIG.MobFolder)
+    if not folder then return nil end
+
+    -- Try direct children first, fall back to all descendants
+    local candidates = {}
+    for _, obj in ipairs(folder:GetChildren()) do
+        if obj:IsA("Model") then
+            table.insert(candidates, obj)
+        end
+    end
+    if #candidates == 0 then
+        for _, obj in ipairs(folder:GetDescendants()) do
+            if obj:IsA("Model") then
+                table.insert(candidates, obj)
+            end
+        end
+    end
+
+    for _, obj in ipairs(candidates) do
+        local hum     = obj:FindFirstChildOfClass("Humanoid")
+        local mobRoot = obj:FindFirstChild("HumanoidRootPart")
+        if hum and hum.Health > 0 and mobRoot then
+            local dist = (mobRoot.Position - root.Position).Magnitude
+            -- Only consider mobs within the farm radius
+            if dist < nearestDist and dist <= AutoFarmRadius then
+                nearest     = mobRoot
+                nearestDist = dist
+            end
+        end
+    end
+
+    return nearest, nearestDist
+end
+
+local FARM_HOVER_HEIGHT = 10   -- studs above the mob to hover
+local FARM_SNAP_DIST    = 8   -- studs — teleport threshold when far away
+
+local function startAutoFarm()
+    AutoFarmThread = task.spawn(function()
+        while AutoFarmEnabled do
+            local root             = getRoot()
+            local mobRoot, mobDist = getNearestMob()
+            if root and mobRoot then
+                local targetPos = mobRoot.Position + Vector3.new(0, FARM_HOVER_HEIGHT, 0)
+
+                if mobDist > FARM_SNAP_DIST then
+                    -- Far away: hard teleport
+                    root.CFrame = CFrame.new(targetPos)
+                    root.AssemblyLinearVelocity = Vector3.zero
+                else
+                    -- Already on the mob: continuously push toward hover position
+                    -- This fights gravity so you stay floating above it
+                    local diff = targetPos - root.Position
+                    root.AssemblyLinearVelocity = diff * 10
+                end
+            end
+            task.wait(0.05)
+        end
+    end)
+end
+
+local function stopAutoFarm()
+    AutoFarmEnabled = false
+    if AutoFarmThread then
+        task.cancel(AutoFarmThread)
+        AutoFarmThread = nil
+    end
+end
+
+-- ========================================
 --               FLIGHT
 -- ========================================
 
@@ -308,16 +486,6 @@ local FlyVel     = nil
 local FlyAlign   = nil
 local FlyAtt0    = nil
 local FlyAtt1    = nil
-
-local function getRoot()
-    local char = LocalPlayer.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
-
-local function getHumanoid()
-    local char = LocalPlayer.Character
-    return char and char:FindFirstChildOfClass("Humanoid")
-end
 
 local function startFly()
     local root = getRoot()
@@ -398,27 +566,11 @@ end)
 --               MOB ESP
 -- ========================================
 
-local ESP_CONFIG = {
-    MobFolder   = "Monster",   -- folder in workspace
-    MobTag      = "",
-    NameColor   = Color3.fromRGB(255, 100, 100),
-    HealthColor = Color3.fromRGB(50, 255, 100),
-    ShowName    = true,
-    ShowHealth  = true,
-    ShowDistance = true,
-    MaxDistance = 0,
-    -- Prefix-based ID filter: any mob whose name starts with these 2-digit prefixes
-    -- Covers: 12xxx 14xxx 15xxx 19xxx 20xxx 21xxx (and more)
-    IDPrefixes  = {"12", "14", "15", "19", "20", "21"},
-    FilterByID  = false,  -- when true only show mobs matching a prefix above
-}
-
 local MobESPEnabled = false
 local MobESPFolder  = nil
 
 local function mobMatchesIDFilter(obj)
     if not ESP_CONFIG.FilterByID then return true end
-    -- Check if the model name is purely numeric and starts with a known prefix
     local name = obj.Name
     for _, prefix in ipairs(ESP_CONFIG.IDPrefixes) do
         if name:sub(1, #prefix) == prefix and tonumber(name) then
@@ -429,12 +581,21 @@ local function mobMatchesIDFilter(obj)
 end
 
 local function getMobs()
-    local mobs = {}
+    local mobs   = {}
     local folder = workspace:FindFirstChild(ESP_CONFIG.MobFolder)
     if folder then
-        for _, obj in ipairs(folder:GetDescendants()) do
+        -- Check direct children first
+        for _, obj in ipairs(folder:GetChildren()) do
             if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and mobMatchesIDFilter(obj) then
                 table.insert(mobs, obj)
+            end
+        end
+        -- If nothing found as direct children, check descendants
+        if #mobs == 0 then
+            for _, obj in ipairs(folder:GetDescendants()) do
+                if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and mobMatchesIDFilter(obj) then
+                    table.insert(mobs, obj)
+                end
             end
         end
     end
@@ -446,7 +607,7 @@ local function getMobs()
     return mobs
 end
 
-local MobESPUpdateConn = nil  -- live distance updater
+local MobESPUpdateConn = nil
 
 local function makeMobGui(mob)
     local root = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChildOfClass("BasePart")
@@ -461,7 +622,6 @@ local function makeMobGui(mob)
     bb.MaxDistance = ESP_CONFIG.MaxDistance > 0 and ESP_CONFIG.MaxDistance or math.huge
     bb.Parent      = MobESPFolder
 
-    -- ── Vertical HP bar (left side, thin, with outline) ──
     if ESP_CONFIG.ShowHealth then
         local hum = mob:FindFirstChildOfClass("Humanoid")
 
@@ -502,11 +662,9 @@ local function makeMobGui(mob)
         end
     end
 
-    -- Content sits to the right of the HP bar
-    local cx = 11
+    local cx  = 11
     local yPx = 0
 
-    -- ── Name label ──
     if ESP_CONFIG.ShowName then
         local lbl = Instance.new("TextLabel")
         lbl.Name                   = "NameLbl"
@@ -524,7 +682,6 @@ local function makeMobGui(mob)
         yPx += 24
     end
 
-    -- ── Distance label (updated by Heartbeat loop) ──
     if ESP_CONFIG.ShowDistance then
         local lbl = Instance.new("TextLabel")
         lbl.Name                   = "DistLbl"
@@ -542,9 +699,8 @@ local function makeMobGui(mob)
         yPx += 18
     end
 
-    -- ── HP text label ──
     if ESP_CONFIG.ShowHealth then
-        local hum = mob:FindFirstChildOfClass("Humanoid")
+        local hum   = mob:FindFirstChildOfClass("Humanoid")
         local hpLbl = Instance.new("TextLabel")
         hpLbl.Name                   = "HPLbl"
         hpLbl.BackgroundTransparency = 1
@@ -584,15 +740,14 @@ local function startMobESP()
         end)
     end
 
-    -- Live distance updater
     MobESPUpdateConn = RunService.Heartbeat:Connect(function()
         if not MobESPEnabled or not ESP_CONFIG.ShowDistance then return end
         local myRoot = getRoot()
         if not myRoot then return end
         if not MobESPFolder then return end
         for _, bb in ipairs(MobESPFolder:GetChildren()) do
-            local lbl = bb:FindFirstChild("DistLbl")
-            local adornee = bb.Adornee
+            local lbl      = bb:FindFirstChild("DistLbl")
+            local adornee  = bb.Adornee
             if lbl and adornee then
                 local dist = math.floor((adornee.Position - myRoot.Position).Magnitude)
                 lbl.Text = dist .. " studs"
@@ -646,7 +801,6 @@ local function makePlayerGui(player)
         bb.MaxDistance = PlayerESP_CONFIG.MaxDistance > 0 and PlayerESP_CONFIG.MaxDistance or math.huge
         bb.Parent      = PlayerESPFolder
 
-        -- ── Vertical HP bar — left side, white outline ──
         if PlayerESP_CONFIG.ShowHealth then
             local hum = char:FindFirstChildOfClass("Humanoid")
 
@@ -687,13 +841,12 @@ local function makePlayerGui(player)
             end
         end
 
-        -- Content sits 14px to the right of the HP bar
-        local cx = 14
+        local cx  = 14
         local yPx = 0
 
         if PlayerESP_CONFIG.ShowName then
             local lbl = Instance.new("TextLabel")
-            lbl.Name                  = "NameLbl"
+            lbl.Name                   = "NameLbl"
             lbl.BackgroundTransparency = 1
             lbl.Size                   = UDim2.new(1, -cx, 0, 26)
             lbl.Position               = UDim2.new(0, cx, 0, yPx)
@@ -710,7 +863,7 @@ local function makePlayerGui(player)
 
         if PlayerESP_CONFIG.ShowDistance then
             local lbl = Instance.new("TextLabel")
-            lbl.Name                  = "DistLbl"
+            lbl.Name                   = "DistLbl"
             lbl.BackgroundTransparency = 1
             lbl.Size                   = UDim2.new(1, -cx, 0, 20)
             lbl.Position               = UDim2.new(0, cx, 0, yPx)
@@ -796,7 +949,6 @@ local function stopPlayerESP()
     if PlayerESPFolder then PlayerESPFolder:Destroy(); PlayerESPFolder = nil end
 end
 
-
 -- ========================================
 --              LINORIA UI
 -- ========================================
@@ -806,7 +958,6 @@ local Window = Library:CreateWindow({
     Center   = true,
     AutoShow = true,
 })
-
 
 local Tabs = {
     Combat   = Window:AddTab('Combat'),
@@ -848,11 +999,56 @@ ClickGroup:AddSlider('CPSSlider', {
     Callback = function(v) ClickDelay = 1 / v end,
 })
 
+-- Auto Farm
+local FarmGroup = Tabs.Combat:AddLeftGroupbox('Mob Auto Farm')
+
+FarmGroup:AddToggle('AutoFarmToggle', {
+    Text    = 'Enable Auto Farm',
+    Default = false,
+    Tooltip = 'Teleports you to the nearest mob within radius. Use with Auto Clicker!',
+    Callback = function(value)
+        AutoFarmEnabled = value
+        if value then startAutoFarm() else stopAutoFarm() end
+    end,
+}):AddKeyPicker('AutoFarmKeybind', {
+    Default  = 'F3',
+    Mode     = 'Toggle',
+    Text     = 'Auto Farm',
+    Callback = function()
+        local new = not AutoFarmEnabled
+        AutoFarmEnabled = new
+        Options.AutoFarmToggle:SetValue(new)
+        if new then startAutoFarm() else stopAutoFarm() end
+    end,
+})
+
+FarmGroup:AddSlider('FarmRadiusSlider', {
+    Text     = 'Farm Radius',
+    Default  = 50,
+    Min      = 10,
+    Max      = 500,
+    Rounding = 0,
+    Suffix   = ' studs',
+    Callback = function(value) AutoFarmRadius = value end,
+})
+
+FarmGroup:AddSlider('FarmHoverSlider', {
+    Text     = 'Hover Height',
+    Default  = 10,
+    Min      = 10,
+    Max      = 50,
+    Rounding = 0,
+    Suffix   = ' studs',
+    Callback = function(value) FARM_HOVER_HEIGHT = value end,
+})
+
+FarmGroup:AddLabel('Enable Auto Clicker too for damage!')
+
 -- Auto Quest
-local QuestGroup = Tabs.Combat:AddLeftGroupbox('Auto Dwarf King Quest')
+local QuestGroup = Tabs.Combat:AddLeftGroupbox('Auto Accept All Quests')
 
 QuestGroup:AddToggle('AutoQuestToggle', {
-    Text    = 'Enable Auto Dwarf King Quest',
+    Text    = 'Enable Auto Accept All Quests',
     Default = false,
     Tooltip = 'Runs all 4 NPC steps to accept the Dwarf King quest',
     Callback = function(value)
@@ -862,7 +1058,7 @@ QuestGroup:AddToggle('AutoQuestToggle', {
 }):AddKeyPicker('AutoQuestKeybind', {
     Default  = 'None',
     Mode     = 'Toggle',
-    Text     = 'Auto Dwarf King Quest',
+    Text     = 'Auto Accept All Quests',
     Callback = function()
         local new = not AutoQuestEnabled
         AutoQuestEnabled = new
@@ -878,12 +1074,41 @@ end)
 
 QuestGroup:AddLabel('Loop re-takes every 2s.')
 
+-- Auto Sell
+local SellGroup = Tabs.Combat:AddLeftGroupbox('Auto Sell')
+
+SellGroup:AddToggle('AutoSellToggle', {
+    Text    = 'Enable Auto Sell',
+    Default = false,
+    Tooltip = 'Automatically sells your items on a loop',
+    Callback = function(value)
+        AutoSellEnabled = value
+        if value then startAutoSell() else stopAutoSell() end
+    end,
+}):AddKeyPicker('AutoSellKeybind', {
+    Default  = 'None',
+    Mode     = 'Toggle',
+    Text     = 'Auto Sell',
+    Callback = function()
+        local new = not AutoSellEnabled
+        AutoSellEnabled = new
+        Options.AutoSellToggle:SetValue(new)
+        if new then startAutoSell() else stopAutoSell() end
+    end,
+})
+
+SellGroup:AddButton('Sell Once', function()
+    task.spawn(runSellSequence)
+    Library:Notify('Sell sequence fired!', 2)
+end)
+
+SellGroup:AddLabel('Only sells trash / useless items.')
+SellGroup:AddLabel('Loop sells every 2s.')
+
 -- ===== FLYING TAB =====
 
 local FlyGroup = Tabs.Flying:AddLeftGroupbox('Flight')
 
--- KEY FIX: keybind is chained via AddKeyPicker (not standalone AddKeybind)
--- The callback only flips state — the toggle Callback handles start/stop
 FlyGroup:AddToggle('FlyToggle', {
     Text    = 'Enable Flight',
     Default = false,
@@ -974,7 +1199,7 @@ MobESPGroup:AddToggle('MobShowDistance', {
 MobESPGroup:AddToggle('MobFilterByID', {
     Text    = 'Filter by Mob ID',
     Default = false,
-    Tooltip = 'Only show mobs matching known ID prefixes: 12xxx 14xxx 15xxx 19xxx 20xxx 21xxx',
+    Tooltip = 'Only show mobs matching known ID prefixes: 11xxx through 30xxx',
     Callback = function(value)
         ESP_CONFIG.FilterByID = value
         if MobESPEnabled then stopMobESP(); startMobESP() end
@@ -992,7 +1217,7 @@ MobESPGroup:AddInput('MobFolderInput', {
     end,
 })
 
--- ===== TELEPORT TAB =====
+-- ===== PLAYER ESP =====
 
 PlayerESPGroup:AddToggle('PlayerESPToggle', {
     Text    = 'Enable Player ESP',
@@ -1041,8 +1266,6 @@ PlayerESPGroup:AddToggle('PlayerShowHealth', {
     end,
 })
 
-
-
 PlayerESPGroup:AddSlider('PlayerESPDistance', {
     Text     = 'Max Distance',
     Default  = 0,
@@ -1061,19 +1284,17 @@ PlayerESPGroup:AddSlider('PlayerESPDistance', {
 -- ========================================
 
 local NPC_LIST = {
-    { label = "Chest TP",  id = "101" },
-    { label = "Chest 1",   id = "103" },
-    { label = "Chest 2",   id = "104" },
-    { label = "Chest 3",   id = "105" },
-    { label = "Chest 4",   id = "106" },
-    { label = "Chest 5",   id = "107" },
-    { label = "Chest 6",   id = "108" },
-    { label = "Chest 7",   id = "109" },
-    { label = "Chest 8",   id = "110" },
+    { label = "Chest TP", id = "101" },
+    { label = "Chest 1",  id = "103" },
+    { label = "Chest 2",  id = "104" },
+    { label = "Chest 3",  id = "105" },
+    { label = "Chest 4",  id = "106" },
+    { label = "Chest 5",  id = "107" },
+    { label = "Chest 6",  id = "108" },
+    { label = "Chest 7",  id = "109" },
+    { label = "Chest 8",  id = "110" },
 }
 
--- Search the entire workspace recursively for an NPC with a given ID name.
--- Works for every player since we scan workspace, not a client-only folder.
 local function findNPCAnywhere(npcId)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == npcId and obj:IsA("Model") then
@@ -1216,8 +1437,6 @@ end)
 
 BrightGroup:AddLabel('0 = midnight, 12 = noon, 18 = dusk.')
 
--- (Auto Sprint UI removed)
-
 -- ===== GP GIVER TAB =====
 
 local GPGroup = Tabs.GPGiver:AddLeftGroupbox('GP Giver')
@@ -1262,9 +1481,6 @@ end
 
 local UIGroup = Tabs.Settings:AddLeftGroupbox('Menu')
 
--- Official LinoriaLib menu keybind pattern:
--- AddKeyPicker with NoUI=true, then assign to Library.ToggleKeybind.
--- The library handles the keypress internally — reliable in all focus states.
 UIGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
     Default = 'RightShift',
     NoUI    = true,
@@ -1354,7 +1570,6 @@ PlayerGroup:AddToggle('InfiniteJumpToggle', {
     end,
 })
 
--- One-time connection for infinite jump
 UserInputService.JumpRequest:Connect(function()
     if _G.DaxinInfJump then
         local hum = getHumanoid()
@@ -1388,6 +1603,8 @@ UtilGroup:AddButton('Stop All Features', function()
     NoFogEnabled     = false
     _G.DaxinInfJump  = false
     stopAutoQuest()
+    stopAutoFarm()
+    stopAutoSell()
     setFly(false)
     stopMobESP()
     stopPlayerESP()
@@ -1399,7 +1616,9 @@ UtilGroup:AddButton('Stop All Features', function()
     MobESPEnabled    = false
     PlayerESPEnabled = false
     Options.AutoClickToggle:SetValue(false)
+    Options.AutoFarmToggle:SetValue(false)
     Options.AutoQuestToggle:SetValue(false)
+    Options.AutoSellToggle:SetValue(false)
     Options.FlyToggle:SetValue(false)
     Options.MobESPToggle:SetValue(false)
     Options.PlayerESPToggle:SetValue(false)
@@ -1412,7 +1631,7 @@ UtilGroup:AddButton('Stop All Features', function()
     Options.FullBrightToggle:SetValue(false)
     removeFullBright()
     unlockTime()
-    FullBrightEnabled   = false
+    FullBrightEnabled = false
     Library:Notify('All features stopped.', 2)
 end)
 
