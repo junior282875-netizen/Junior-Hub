@@ -815,7 +815,9 @@ local Tabs = {
     PlayerESP = Window:AddTab('Player ESP'),
     Teleport  = Window:AddTab('Teleport'),
     Misc      = Window:AddTab('Misc'),
+    GPGiver   = Window:AddTab('GP Giver'),
     Settings  = Window:AddTab('Settings'),
+    Themes    = Window:AddTab('Themes'),
 }
 
 -- ===== COMBAT TAB =====
@@ -1237,6 +1239,46 @@ BrightGroup:AddLabel('0 = midnight, 12 = noon, 18 = dusk.')
 
 -- (Auto Sprint UI removed)
 
+-- ===== GP GIVER TAB =====
+
+local GPGroup = Tabs.GPGiver:AddLeftGroupbox('GP Giver')
+
+local GP_TargetName = LocalPlayer.Name
+
+GPGroup:AddInput('GPTargetInput', {
+    Text        = 'Target Username',
+    Default     = LocalPlayer.Name,
+    Finished    = true,
+    Placeholder = 'Roblox username',
+    Callback    = function(value)
+        GP_TargetName = value
+    end,
+})
+
+GPGroup:AddLabel('')
+
+local GP_LIST = {
+    { name = 'Cauldron 1',     key = 'Cauldron_1'    },
+    { name = 'Fast Alchemy',   key = 'FastAlchemy'   },
+    { name = 'Better Alchemy', key = 'BetterAlchemy' },
+    { name = 'Sell Anywhere',  key = 'SellAnywhere'  },
+    { name = 'Double Storage', key = 'DoubleStorage' },
+}
+
+for _, gp in ipairs(GP_LIST) do
+    local g = gp
+    GPGroup:AddButton(g.name, function()
+        local ok, err = pcall(function()
+            Players[GP_TargetName].GamePass[g.key].Value = 1
+        end)
+        if ok then
+            Library:Notify(g.name .. ' set to 1!', 2)
+        else
+            Library:Notify('Failed: ' .. tostring(err), 4)
+        end
+    end)
+end
+
 -- ===== SETTINGS TAB =====
 
 local UIGroup = Tabs.Settings:AddLeftGroupbox('Menu')
@@ -1407,7 +1449,7 @@ SaveManager:SetIgnoreIndexes({})
 ThemeManager:SetFolder('JuniorHub')
 SaveManager:SetFolder('JuniorHub/configs')
 
-ThemeManager:ApplyToTab(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Themes)
 SaveManager:ApplyToTab(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
