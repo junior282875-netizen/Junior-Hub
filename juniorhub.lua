@@ -796,6 +796,7 @@ local function stopPlayerESP()
     if PlayerESPFolder then PlayerESPFolder:Destroy(); PlayerESPFolder = nil end
 end
 
+
 -- ========================================
 --              LINORIA UI
 -- ========================================
@@ -806,15 +807,6 @@ local Window = Library:CreateWindow({
     AutoShow = true,
 })
 
--- ── Standalone menu keybind ──
--- Uses InputBegan directly so it fires reliably regardless of UI focus state.
-local MenuBind = Enum.KeyCode.RightShift
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == MenuBind then
-        Library:ToggleUI()
-    end
-end)
 
 local Tabs = {
     Combat    = Window:AddTab('Combat'),
@@ -1050,14 +1042,7 @@ PlayerESPGroup:AddToggle('PlayerShowHealth', {
     end,
 })
 
-PlayerESPGroup:AddToggle('PlayerShowTeam', {
-    Text    = 'Show Team Name',
-    Default = true,
-    Callback = function(value)
-        PlayerESP_CONFIG.ShowTeam = value
-        if PlayerESPEnabled then stopPlayerESP(); startPlayerESP() end
-    end,
-})
+
 
 PlayerESPGroup:AddSlider('PlayerESPDistance', {
     Text     = 'Max Distance',
@@ -1256,23 +1241,15 @@ BrightGroup:AddLabel('0 = midnight, 12 = noon, 18 = dusk.')
 
 local UIGroup = Tabs.Settings:AddLeftGroupbox('Menu')
 
-UIGroup:AddKeybind('MenuOpenKeybind', {
-    Text    = 'Open / Close Menu',
+-- Official LinoriaLib menu keybind pattern:
+-- AddKeyPicker with NoUI=true, then assign to Library.ToggleKeybind.
+-- The library handles the keypress internally — reliable in all focus states.
+UIGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
     Default = 'RightShift',
-    Mode    = 'Toggle',
-    Callback = function()
-        -- handled by standalone InputBegan bind to avoid double-toggle
-    end,
+    NoUI    = true,
+    Text    = 'Menu keybind',
 })
-
-UIGroup:AddKeybind('HideUIKeybind', {
-    Text    = 'Hide / Show UI',
-    Default = 'Delete',
-    Mode    = 'Toggle',
-    Callback = function()
-        task.defer(function() Library:ToggleUI() end)
-    end,
-})
+Library.ToggleKeybind = Options.MenuKeybind
 
 UIGroup:AddToggle('MenuKeybindToggle', {
     Text    = 'Show Keybind List',
