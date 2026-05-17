@@ -809,15 +809,13 @@ local Window = Library:CreateWindow({
 
 
 local Tabs = {
-    Combat    = Window:AddTab('Combat'),
-    Flying    = Window:AddTab('Flying'),
-    MobESP    = Window:AddTab('Mob ESP'),
-    PlayerESP = Window:AddTab('Player ESP'),
-    Teleport  = Window:AddTab('Teleport'),
-    Misc      = Window:AddTab('Misc'),
-    GPGiver   = Window:AddTab('GP Giver'),
-    Settings  = Window:AddTab('Settings'),
-    Themes    = Window:AddTab('Themes'),
+    Combat   = Window:AddTab('Combat'),
+    Flying   = Window:AddTab('Flying'),
+    ESP      = Window:AddTab('ESP'),
+    Teleport = Window:AddTab('Teleport'),
+    Misc     = Window:AddTab('Misc'),
+    GPGiver  = Window:AddTab('GP Giver'),
+    Settings = Window:AddTab('Settings'),
 }
 
 -- ===== COMBAT TAB =====
@@ -914,9 +912,10 @@ FlyGroup:AddSlider('FlySpeedSlider', {
     Callback = function(v) FlySpeed = v end,
 })
 
--- ===== MOB ESP TAB =====
+-- ===== ESP TAB =====
 
-local MobESPGroup = Tabs.MobESP:AddLeftGroupbox('Mob ESP')
+local MobESPGroup    = Tabs.ESP:AddLeftGroupbox('Mob ESP')
+local PlayerESPGroup = Tabs.ESP:AddRightGroupbox('Player ESP')
 
 MobESPGroup:AddToggle('MobESPToggle', {
     Text    = 'Enable Mob ESP',
@@ -993,9 +992,7 @@ MobESPGroup:AddInput('MobFolderInput', {
     end,
 })
 
--- ===== PLAYER ESP TAB =====
-
-local PlayerESPGroup = Tabs.PlayerESP:AddLeftGroupbox('Player ESP')
+-- ===== TELEPORT TAB =====
 
 PlayerESPGroup:AddToggle('PlayerESPToggle', {
     Text    = 'Enable Player ESP',
@@ -1124,24 +1121,6 @@ for _, entry in ipairs(NPC_LIST) do
         tpToNPC(capturedId)
     end)
 end
-
-local TPRightGroup = Tabs.Teleport:AddRightGroupbox('Custom TP')
-TPRightGroup:AddLabel('Enter any NPC ID manually:')
-TPRightGroup:AddInput('CustomTPInput', {
-    Text        = 'NPC ID',
-    Default     = '',
-    Finished    = false,
-    Placeholder = 'e.g. 108',
-    Callback    = function() end,
-})
-TPRightGroup:AddButton('Teleport', function()
-    local id = Options.CustomTPInput.Value
-    if id and id ~= '' then
-        tpToNPC(id)
-    else
-        Library:Notify('Enter an NPC ID first!', 2)
-    end
-end)
 
 -- ===== MISC TAB =====
 
@@ -1449,7 +1428,7 @@ SaveManager:SetIgnoreIndexes({})
 ThemeManager:SetFolder('JuniorHub')
 SaveManager:SetFolder('JuniorHub/configs')
 
-ThemeManager:ApplyToTab(Tabs.Themes)
+ThemeManager:ApplyToTab(Tabs.Settings)
 SaveManager:ApplyToTab(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
