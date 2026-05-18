@@ -1,5 +1,5 @@
 -- Junior Hub | LinoriaLib v5
--- Auto Clicker + Flight + Mob ESP + Player ESP + Auto Accept All Quests
+-- Auto M1 + Flight + Mob ESP + Player ESP + Auto Accept All Quests + Auto Stat Points + Auto Ascend + Auto Redeem Codes
 -- Place in StarterPlayerScripts as a LocalScript
 
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
@@ -12,6 +12,7 @@ local Players          = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService       = game:GetService("RunService")
 local RS               = game:GetService("ReplicatedStorage")
+local HttpService      = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
@@ -31,19 +32,42 @@ local function getHumanoid()
 end
 
 -- ========================================
---             AUTO CLICKER
+--              AUTO M1
 -- ========================================
 
-local AutoClickEnabled = false
-local ClickDelay       = 1 / 20
-local lastClick        = 0
+local AutoM1Enabled = false
+local M1Delay       = 1 / 3
+local lastM1        = 0
+
+local function getAttackArgs()
+    local root = getRoot()
+    if not root then return nil end
+    local mouse = LocalPlayer:GetMouse()
+    return {
+        [1] = 4,
+        [2] = {
+            ["targetCF"]            = mouse.Hit,
+            ["moveDirectionStr"]    = "Forward",
+            ["clientPredictCastId"] = HttpService:GenerateGUID(false),
+            ["characterType"]       = "Player",
+            ["releaseCF"]           = root.CFrame,
+            ["characterId"]         = LocalPlayer.UserId,
+            ["trackTargetId"]       = "0"
+        }
+    }
+end
 
 RunService.Heartbeat:Connect(function()
-    if not AutoClickEnabled then return end
+    if not AutoM1Enabled then return end
     local now = tick()
-    if now - lastClick >= ClickDelay then
-        lastClick = now
-        mouse1click()
+    if now - lastM1 >= M1Delay then
+        lastM1 = now
+        local args = getAttackArgs()
+        if args then
+            pcall(function()
+                RS.Msg.RemoteEvent.ReleaseGroupSkill:FireServer(unpack(args))
+            end)
+        end
     end
 end)
 
@@ -263,7 +287,6 @@ local function runQuestSequence()
     local qArg1 = string.char(232, 167, 166, 229, 143, 145, 232, 129, 138, 229, 164, 169)
     local qArg2 = string.char(229, 147, 136, 229, 136, 169, 229, 155, 160, 231, 137, 185)
 
-    -- Step 1 & 2: Accept Dwarf King quest
     pcall(function()
         RS.Msg.RemoteEvent.RemoteEvent:FireServer(qArg1, {qArg2, "10010100"})
     end)
@@ -272,17 +295,14 @@ local function runQuestSequence()
         RS.Msg.RemoteEvent.RemoteEvent:FireServer(qArg1, {qArg2, 10010501})
     end)
     task.wait(0.4)
-    -- Step 3: Talk to NPC (quest 6)
     pcall(function()
         RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "6"})
     end)
     task.wait(0.4)
-    -- Step 4: Confirm task
     pcall(function()
         RS.Msg.RemoteFunction.Setting:InvokeServer("TASK", 1)
     end)
     task.wait(0.4)
-    -- Step 5: Quest 4
     pcall(function()
         RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "4"})
     end)
@@ -291,12 +311,10 @@ local function runQuestSequence()
         RS.Msg.RemoteFunction.Setting:InvokeServer("TASK", 1)
     end)
     task.wait(0.4)
-    -- Step 6: Quest 3
     pcall(function()
         RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "3"})
     end)
     task.wait(0.4)
-    -- Step 7: Quest 2
     pcall(function()
         RS.Msg.Function.TalkFunc:InvokeServer(qKey, {qBase .. "2"})
     end)
@@ -350,6 +368,10 @@ local function runSellSequence()
     end)
     task.wait(0.4)
     pcall(function()
+        RS.Msg.RemoteFunction.RemoteFunction:InvokeServer(str4, {["onlyIDList"] = {1014, 1016, 1013, 1012, 1011}})
+    end)
+    task.wait(0.4)
+    pcall(function()
         RS.Msg.RemoteEvent.RemoteEvent:FireServer(str5)
     end)
 end
@@ -372,8 +394,133 @@ local function stopAutoSell()
 end
 
 -- ========================================
+--             AUTO ASCEND
+-- ========================================
+
+local AutoAscendEnabled = false
+local AutoAscendThread  = nil
+
+local function tryAscend()
+    local isMaxLv = LocalPlayer:FindFirstChild("IsMaxLv")
+    if not isMaxLv or not isMaxLv.Value then return false end
+
+    pcall(function()
+        RS.Msg.RemoteFunction.RemoteFunction:InvokeServer("\233\135\141\231\148\159")
+    end)
+    task.wait(0.5)
+    pcall(function()
+        RS.Msg.RemoteEvent.RemoteEvent:FireServer("\229\136\183\230\150\176\229\188\149\229\175\188")
+    end)
+    return true
+end
+
+local function startAutoAscend()
+    AutoAscendThread = task.spawn(function()
+        while AutoAscendEnabled do
+            local didAscend = tryAscend()
+            if didAscend then
+                Library:Notify('Ascended!', 2)
+                task.wait(3)
+            else
+                task.wait(1)
+            end
+        end
+    end)
+end
+
+local function stopAutoAscend()
+    AutoAscendEnabled = false
+    if AutoAscendThread then
+        task.cancel(AutoAscendThread)
+        AutoAscendThread = nil
+    end
+end
+
+-- ========================================
+--           AUTO STAT POINTS
+-- ========================================
+
+local STAT_KEY = "\229\177\158\230\128\167\229\138\160\231\130\185"
+
+local STAT_TYPES = {
+    { name = "Strength",           id = 1  },
+    { name = "HP",                 id = 5  },
+    { name = "Cooldown Reduction", id = 39 },
+    { name = "Movement Speed",     id = 41 },
+}
+
+local StatPointAlloc = {
+    [1]  = 0,
+    [5]  = 0,
+    [39] = 0,
+    [41] = 0,
+}
+
+local AutoStatEnabled  = false
+local AutoStatThread   = nil
+local AutoStatLoopStat = 1
+
+local function putPoints(attrTp, amount)
+    if amount <= 0 then return end
+    pcall(function()
+        RS.Msg.RemoteFunction.RemoteFunction:InvokeServer(STAT_KEY, {
+            ["PointNum"] = amount,
+            ["AttrTp"]   = attrTp,
+        })
+    end)
+end
+
+local function runStatSequence()
+    for attrTp, amount in pairs(StatPointAlloc) do
+        putPoints(attrTp, amount)
+        task.wait(0.3)
+    end
+end
+
+local function runStatLoop()
+    AutoStatThread = task.spawn(function()
+        while AutoStatEnabled do
+            putPoints(AutoStatLoopStat, 1)
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function stopAutoStat()
+    AutoStatEnabled = false
+    if AutoStatThread then
+        task.cancel(AutoStatThread)
+        AutoStatThread = nil
+    end
+end
+
+-- ========================================
+--           AUTO REDEEM CODES
+-- ========================================
+
+local CODES = {
+    "SPELL", "BREW", "RELEASE", "WIZARD",
+    "17kCCU", "20kMembers",
+}
+
+local function redeemCode(code)
+    pcall(function()
+        RS.Msg.RemoteFunction.RemoteFunction:InvokeServer(
+            "\229\133\145\230\141\162\231\160\129",
+            code
+        )
+    end)
+end
+
+local function redeemAllCodes()
+    for _, code in ipairs(CODES) do
+        redeemCode(code)
+        task.wait(0.5)
+    end
+end
+
+-- ========================================
 --               MOB ESP CONFIG
--- (moved above autofarm so it's available)
 -- ========================================
 
 local ESP_CONFIG = {
@@ -391,9 +538,6 @@ local ESP_CONFIG = {
 
 -- ========================================
 --             MOB AUTOFARM
--- (fixed: uses ESP_CONFIG, GetChildren first
---  then falls back to GetDescendants, better
---  Y offset, radius actually filters mobs)
 -- ========================================
 
 local AutoFarmEnabled = false
@@ -409,7 +553,6 @@ local function getNearestMob()
     local folder = workspace:FindFirstChild(ESP_CONFIG.MobFolder)
     if not folder then return nil end
 
-    -- Try direct children first, fall back to all descendants
     local candidates = {}
     for _, obj in ipairs(folder:GetChildren()) do
         if obj:IsA("Model") then
@@ -429,7 +572,6 @@ local function getNearestMob()
         local mobRoot = obj:FindFirstChild("HumanoidRootPart")
         if hum and hum.Health > 0 and mobRoot then
             local dist = (mobRoot.Position - root.Position).Magnitude
-            -- Only consider mobs within the farm radius
             if dist < nearestDist and dist <= AutoFarmRadius then
                 nearest     = mobRoot
                 nearestDist = dist
@@ -440,27 +582,18 @@ local function getNearestMob()
     return nearest, nearestDist
 end
 
-local FARM_HOVER_HEIGHT = 10   -- studs above the mob to hover
-local FARM_SNAP_DIST    = 8   -- studs — teleport threshold when far away
+local FARM_HOVER_HEIGHT = 10
+local FARM_SNAP_DIST    = 8
 
 local function startAutoFarm()
     AutoFarmThread = task.spawn(function()
         while AutoFarmEnabled do
-            local root             = getRoot()
+            local root = getRoot()
             local mobRoot, mobDist = getNearestMob()
             if root and mobRoot then
                 local targetPos = mobRoot.Position + Vector3.new(0, FARM_HOVER_HEIGHT, 0)
-
-                if mobDist > FARM_SNAP_DIST then
-                    -- Far away: hard teleport
-                    root.CFrame = CFrame.new(targetPos)
-                    root.AssemblyLinearVelocity = Vector3.zero
-                else
-                    -- Already on the mob: continuously push toward hover position
-                    -- This fights gravity so you stay floating above it
-                    local diff = targetPos - root.Position
-                    root.AssemblyLinearVelocity = diff * 10
-                end
+                root.CFrame = CFrame.new(targetPos)
+                root.AssemblyLinearVelocity = Vector3.zero
             end
             task.wait(0.05)
         end
@@ -584,13 +717,11 @@ local function getMobs()
     local mobs   = {}
     local folder = workspace:FindFirstChild(ESP_CONFIG.MobFolder)
     if folder then
-        -- Check direct children first
         for _, obj in ipairs(folder:GetChildren()) do
             if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and mobMatchesIDFilter(obj) then
                 table.insert(mobs, obj)
             end
         end
-        -- If nothing found as direct children, check descendants
         if #mobs == 0 then
             for _, obj in ipairs(folder:GetDescendants()) do
                 if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and mobMatchesIDFilter(obj) then
@@ -950,6 +1081,73 @@ local function stopPlayerESP()
 end
 
 -- ========================================
+--           NPC TELEPORT
+-- ========================================
+
+local NPC_LIST = {
+    { label = "Chest TP", id = "101" },
+    { label = "Chest 1",  id = "103" },
+    { label = "Chest 2",  id = "104" },
+    { label = "Chest 3",  id = "105" },
+    { label = "Chest 4",  id = "106" },
+    { label = "Chest 5",  id = "107" },
+    { label = "Chest 6",  id = "108" },
+    { label = "Chest 7",  id = "109" },
+    { label = "Chest 8",  id = "110" },
+}
+
+local function findNPCAnywhere(npcId)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == npcId and obj:IsA("Model") then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- FIXED: pass npcId (string) to the remote, not the model
+local function tpToNPC(npcId)
+    local root = getRoot()
+    if not root then
+        Library:Notify("No character!", 2)
+        return
+    end
+    local npc = findNPCAnywhere(npcId)
+    if not npc then
+        Library:Notify("Chest didn't respawn yet!", 2)
+        return
+    end
+    local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+    if not npcRoot then
+        for _, v in ipairs(npc:GetDescendants()) do
+            if v:IsA("BasePart") then npcRoot = v break end
+        end
+    end
+    if npcRoot then
+        root.CFrame = CFrame.new(npcRoot.Position + Vector3.new(0, 3, 0))
+        task.wait(0.3)
+        local ok, err = pcall(function()
+            RS.Msg.RemoteFunction.SystemChestRemoteFunction:InvokeServer(npcId)
+        end)
+        if ok then
+            Library:Notify("Teleported & opened chest!", 2)
+        else
+            -- Try tonumber as fallback
+            local ok2, err2 = pcall(function()
+                RS.Msg.RemoteFunction.SystemChestRemoteFunction:InvokeServer(tonumber(npcId))
+            end)
+            if ok2 then
+                Library:Notify("Teleported & opened chest!", 2)
+            else
+                Library:Notify("TP ok, chest open failed: " .. tostring(err2), 3)
+            end
+        end
+    else
+        Library:Notify("Chest didn't respawn yet!", 2)
+    end
+end
+
+-- ========================================
 --              LINORIA UI
 -- ========================================
 
@@ -960,7 +1158,7 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-    Combat   = Window:AddTab('Combat'),
+    Main     = Window:AddTab('Main'),
     Flying   = Window:AddTab('Flying'),
     ESP      = Window:AddTab('ESP'),
     Teleport = Window:AddTab('Teleport'),
@@ -969,43 +1167,35 @@ local Tabs = {
     Settings = Window:AddTab('Settings'),
 }
 
--- ===== COMBAT TAB =====
+-- ===== MAIN TAB =====
 
-local ClickGroup = Tabs.Combat:AddLeftGroupbox('Auto Clicker')
+local M1Group = Tabs.Main:AddLeftGroupbox('Auto M1')
 
-ClickGroup:AddToggle('AutoClickToggle', {
-    Text    = 'Enable Auto Clicker',
+M1Group:AddToggle('AutoM1Toggle', {
+    Text    = 'Enable Auto M1',
     Default = false,
-    Tooltip = 'Spams M1 at your chosen CPS',
-    Callback = function(value) AutoClickEnabled = value end,
-}):AddKeyPicker('AutoClickKeybind', {
+    Tooltip = 'Automatically fires your staff attack at 3 attacks per second',
+    Callback = function(value) AutoM1Enabled = value end,
+}):AddKeyPicker('AutoM1Keybind', {
     Default  = 'F2',
     Mode     = 'Toggle',
-    Text     = 'Auto Clicker',
+    Text     = 'Auto M1',
     Callback = function()
-        local new = not AutoClickEnabled
-        AutoClickEnabled = new
-        Options.AutoClickToggle:SetValue(new)
+        local new = not AutoM1Enabled
+        AutoM1Enabled = new
+        Options.AutoM1Toggle:SetValue(new)
     end,
 })
 
-ClickGroup:AddSlider('CPSSlider', {
-    Text     = 'Clicks Per Second',
-    Default  = 20,
-    Min      = 1,
-    Max      = 50,
-    Rounding = 0,
-    Suffix   = ' CPS',
-    Callback = function(v) ClickDelay = 1 / v end,
-})
+M1Group:AddLabel('Attack speed: 3 per second (fixed).')
 
 -- Auto Farm
-local FarmGroup = Tabs.Combat:AddLeftGroupbox('Mob Auto Farm')
+local FarmGroup = Tabs.Main:AddLeftGroupbox('Mob Auto Farm')
 
 FarmGroup:AddToggle('AutoFarmToggle', {
     Text    = 'Enable Auto Farm',
     Default = false,
-    Tooltip = 'Teleports you to the nearest mob within radius. Use with Auto Clicker!',
+    Tooltip = 'Teleports you to the nearest mob within radius. Use with Auto M1!',
     Callback = function(value)
         AutoFarmEnabled = value
         if value then startAutoFarm() else stopAutoFarm() end
@@ -1042,10 +1232,10 @@ FarmGroup:AddSlider('FarmHoverSlider', {
     Callback = function(value) FARM_HOVER_HEIGHT = value end,
 })
 
-FarmGroup:AddLabel('Enable Auto Clicker too for damage!')
+FarmGroup:AddLabel('Enable Auto M1 for it to work properly.')
 
 -- Auto Quest
-local QuestGroup = Tabs.Combat:AddLeftGroupbox('Auto Accept All Quests')
+local QuestGroup = Tabs.Main:AddLeftGroupbox('Auto Accept All Quests')
 
 QuestGroup:AddToggle('AutoQuestToggle', {
     Text    = 'Enable Auto Accept All Quests',
@@ -1075,7 +1265,7 @@ end)
 QuestGroup:AddLabel('Loop re-takes every 2s.')
 
 -- Auto Sell
-local SellGroup = Tabs.Combat:AddLeftGroupbox('Auto Sell')
+local SellGroup = Tabs.Main:AddLeftGroupbox('Auto Sell')
 
 SellGroup:AddToggle('AutoSellToggle', {
     Text    = 'Enable Auto Sell',
@@ -1104,6 +1294,128 @@ end)
 
 SellGroup:AddLabel('Only sells trash / useless items.')
 SellGroup:AddLabel('Loop sells every 2s.')
+
+-- Auto Ascend
+local AscendGroup = Tabs.Main:AddLeftGroupbox('Auto Ascend')
+
+AscendGroup:AddToggle('AutoAscendToggle', {
+    Text    = 'Enable Auto Ascend',
+    Default = false,
+    Tooltip = 'Automatically ascends when IsMaxLv is true',
+    Callback = function(value)
+        AutoAscendEnabled = value
+        if value then startAutoAscend() else stopAutoAscend() end
+    end,
+}):AddKeyPicker('AutoAscendKeybind', {
+    Default  = 'None',
+    Mode     = 'Toggle',
+    Text     = 'Auto Ascend',
+    Callback = function()
+        local new = not AutoAscendEnabled
+        AutoAscendEnabled = new
+        Options.AutoAscendToggle:SetValue(new)
+        if new then startAutoAscend() else stopAutoAscend() end
+    end,
+})
+
+AscendGroup:AddButton('Ascend Once', function()
+    local ok = tryAscend()
+    if ok then
+        Library:Notify('Ascend fired!', 2)
+    else
+        Library:Notify('Not max level yet!', 2)
+    end
+end)
+
+AscendGroup:AddLabel('Only ascends when max level AND')
+AscendGroup:AddLabel('enough gold coins are reached.')
+AscendGroup:AddLabel('Checks every 1s, waits 3s after ascend.')
+
+-- Auto Redeem Codes
+local CodesGroup = Tabs.Main:AddLeftGroupbox('Redeem Codes')
+
+CodesGroup:AddButton('Redeem All Codes', function()
+    task.spawn(function()
+        redeemAllCodes()
+        Library:Notify('All codes redeemed!', 3)
+    end)
+end)
+
+CodesGroup:AddLabel('Codes: SPELL, BREW, RELEASE,')
+CodesGroup:AddLabel('WIZARD, 17kCCU, 20kMembers')
+CodesGroup:AddLabel('Redeems all with 0.5s gap.')
+
+-- ===== AUTO STAT POINTS (right column of Main tab) =====
+
+local StatGroup = Tabs.Main:AddRightGroupbox('Auto Stat Points')
+
+StatGroup:AddLabel('One-time: set amounts, click Distribute.')
+StatGroup:AddLabel('')
+
+for _, stat in ipairs(STAT_TYPES) do
+    local capturedId = stat.id
+    StatGroup:AddSlider('StatSlider_' .. stat.id, {
+        Text     = stat.name .. ' Points',
+        Default  = 0,
+        Min      = 0,
+        Max      = 100,
+        Rounding = 0,
+        Suffix   = ' pts',
+        Callback = function(value)
+            StatPointAlloc[capturedId] = value
+        end,
+    })
+end
+
+StatGroup:AddButton('Distribute Points Once', function()
+    task.spawn(runStatSequence)
+    Library:Notify('Stat points distributed!', 2)
+end)
+
+StatGroup:AddLabel('')
+StatGroup:AddLabel('Loop: spams 1 point per 0.5s into chosen stat.')
+
+local statNames = {}
+for _, s in ipairs(STAT_TYPES) do
+    table.insert(statNames, s.name)
+end
+
+StatGroup:AddDropdown('StatLoopDropdown', {
+    Text    = 'Loop Stat',
+    Values  = statNames,
+    Default = 1,
+    Tooltip = 'Which stat to spam into when loop is enabled',
+    Callback = function(value)
+        for _, s in ipairs(STAT_TYPES) do
+            if s.name == value then
+                AutoStatLoopStat = s.id
+                break
+            end
+        end
+    end,
+})
+
+StatGroup:AddToggle('AutoStatToggle', {
+    Text    = 'Enable Stat Loop',
+    Default = false,
+    Tooltip = 'Continuously puts points into selected stat every 0.5s',
+    Callback = function(value)
+        AutoStatEnabled = value
+        if value then runStatLoop() else stopAutoStat() end
+    end,
+}):AddKeyPicker('AutoStatKeybind', {
+    Default  = 'None',
+    Mode     = 'Toggle',
+    Text     = 'Stat Loop',
+    Callback = function()
+        local new = not AutoStatEnabled
+        AutoStatEnabled = new
+        Options.AutoStatToggle:SetValue(new)
+        if new then runStatLoop() else stopAutoStat() end
+    end,
+})
+
+StatGroup:AddLabel('Needs free stat points to work.')
 
 -- ===== FLYING TAB =====
 
@@ -1136,6 +1448,51 @@ FlyGroup:AddSlider('FlySpeedSlider', {
     Suffix   = ' studs/s',
     Callback = function(v) FlySpeed = v end,
 })
+
+FlyGroup:AddSlider('FlyWalkSpeedSlider', {
+    Text     = 'Walk Speed',
+    Default  = 16,
+    Min      = 1,
+    Max      = 300,
+    Rounding = 0,
+    Suffix   = ' stud/s',
+    Callback = function(value)
+        local hum = getHumanoid()
+        if hum then hum.WalkSpeed = value end
+    end,
+})
+
+FlyGroup:AddSlider('FlyJumpPowerSlider', {
+    Text     = 'Jump Power',
+    Default  = 50,
+    Min      = 0,
+    Max      = 300,
+    Rounding = 0,
+    Suffix   = '',
+    Callback = function(value)
+        local hum = getHumanoid()
+        if hum then
+            hum.UseJumpPower = true
+            hum.JumpPower    = value
+        end
+    end,
+})
+
+FlyGroup:AddToggle('InfiniteJumpToggle', {
+    Text    = 'Infinite Jump',
+    Default = false,
+    Tooltip = 'Press Space to jump even while airborne',
+    Callback = function(value)
+        _G.DaxinInfJump = value
+    end,
+})
+
+UserInputService.JumpRequest:Connect(function()
+    if _G.DaxinInfJump then
+        local hum = getHumanoid()
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
 
 -- ===== ESP TAB =====
 
@@ -1279,60 +1636,10 @@ PlayerESPGroup:AddSlider('PlayerESPDistance', {
     end,
 })
 
--- ========================================
---           NPC TELEPORT
--- ========================================
-
-local NPC_LIST = {
-    { label = "Chest TP", id = "101" },
-    { label = "Chest 1",  id = "103" },
-    { label = "Chest 2",  id = "104" },
-    { label = "Chest 3",  id = "105" },
-    { label = "Chest 4",  id = "106" },
-    { label = "Chest 5",  id = "107" },
-    { label = "Chest 6",  id = "108" },
-    { label = "Chest 7",  id = "109" },
-    { label = "Chest 8",  id = "110" },
-}
-
-local function findNPCAnywhere(npcId)
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == npcId and obj:IsA("Model") then
-            return obj
-        end
-    end
-    return nil
-end
-
-local function tpToNPC(npcId)
-    local root = getRoot()
-    if not root then
-        Library:Notify("No character!", 2)
-        return
-    end
-    local npc = findNPCAnywhere(npcId)
-    if not npc then
-        Library:Notify("Chest didn't respawn yet!", 2)
-        return
-    end
-    local npcRoot = npc:FindFirstChild("HumanoidRootPart")
-    if not npcRoot then
-        for _, v in ipairs(npc:GetDescendants()) do
-            if v:IsA("BasePart") then npcRoot = v; break end
-        end
-    end
-    if npcRoot then
-        root.CFrame = npcRoot.CFrame + Vector3.new(0, 3, 0)
-        Library:Notify("Teleported to chest!", 2)
-    else
-        Library:Notify("Chest didn't respawn yet!", 2)
-    end
-end
-
 -- ===== TELEPORT TAB =====
 
 local TPGroup = Tabs.Teleport:AddLeftGroupbox('Chest Teleport')
-TPGroup:AddLabel('Teleports you to chests in the world.')
+TPGroup:AddLabel('Teleports you to chests and opens them.')
 TPGroup:AddLabel('Searches all of workspace automatically.')
 TPGroup:AddLabel('')
 
@@ -1530,53 +1837,6 @@ NotifGroup:AddSlider('NotifDuration', {
     end,
 })
 
-local PlayerGroup = Tabs.Settings:AddRightGroupbox('Player')
-
-PlayerGroup:AddSlider('WalkSpeedSlider', {
-    Text     = 'Walk Speed',
-    Default  = 16,
-    Min      = 1,
-    Max      = 300,
-    Rounding = 0,
-    Suffix   = ' stud/s',
-    Callback = function(value)
-        local hum = getHumanoid()
-        if hum then hum.WalkSpeed = value end
-    end,
-})
-
-PlayerGroup:AddSlider('JumpPowerSlider', {
-    Text     = 'Jump Power',
-    Default  = 50,
-    Min      = 0,
-    Max      = 300,
-    Rounding = 0,
-    Suffix   = '',
-    Callback = function(value)
-        local hum = getHumanoid()
-        if hum then
-            hum.UseJumpPower = true
-            hum.JumpPower    = value
-        end
-    end,
-})
-
-PlayerGroup:AddToggle('InfiniteJumpToggle', {
-    Text    = 'Infinite Jump',
-    Default = false,
-    Tooltip = 'Press Space to jump even while airborne',
-    Callback = function(value)
-        _G.DaxinInfJump = value
-    end,
-})
-
-UserInputService.JumpRequest:Connect(function()
-    if _G.DaxinInfJump then
-        local hum = getHumanoid()
-        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
-
 local UtilGroup = Tabs.Settings:AddRightGroupbox('Utilities')
 
 UtilGroup:AddButton('Rejoin', function()
@@ -1599,12 +1859,14 @@ UtilGroup:AddButton('Copy Game ID', function()
 end)
 
 UtilGroup:AddButton('Stop All Features', function()
-    AutoClickEnabled = false
+    AutoM1Enabled    = false
     NoFogEnabled     = false
     _G.DaxinInfJump  = false
     stopAutoQuest()
     stopAutoFarm()
     stopAutoSell()
+    stopAutoStat()
+    stopAutoAscend()
     setFly(false)
     stopMobESP()
     stopPlayerESP()
@@ -1615,10 +1877,12 @@ UtilGroup:AddButton('Stop All Features', function()
     restorePostFX()
     MobESPEnabled    = false
     PlayerESPEnabled = false
-    Options.AutoClickToggle:SetValue(false)
+    Options.AutoM1Toggle:SetValue(false)
     Options.AutoFarmToggle:SetValue(false)
     Options.AutoQuestToggle:SetValue(false)
     Options.AutoSellToggle:SetValue(false)
+    Options.AutoStatToggle:SetValue(false)
+    Options.AutoAscendToggle:SetValue(false)
     Options.FlyToggle:SetValue(false)
     Options.MobESPToggle:SetValue(false)
     Options.PlayerESPToggle:SetValue(false)
